@@ -1,57 +1,11 @@
-if Soulfire then
-    -- warn("⚠️ Soulfire is already loaded.")
-	return
-end
+local RunService = cloneref(game:GetService("RunService"))
+local Players = cloneref(game:GetService("Players"))
+local CoreGui = cloneref(game:GetService("CoreGui"))
 
-pcall(function() getgenv().Soulfire = {} end)
-if not game:IsLoaded() then game.Loaded:Wait() end
+local LocalPlayer = Players.LocalPlayer
 
-local __PassedFunctions = {}
-local __FailedFunctions = {}
-local __TotalFunctions = 0
-local __TotalPassed = 0
-
-local function missing(name, t, f, fallback)
-    __TotalFunctions += 1
-    if type(f) == t then
-        __PassedFunctions[name or f] = true
-        __TotalPassed += 1
-        print(string.format("✅ [%s]", name or tostring(f)))
-        return f
-    end
-    
-    __FailedFunctions[name or f] = true
-    print(string.format("❌ [%s]", name or tostring(f)))
-    return fallback
-end
-
-print("💡 Environment Test")
-local getgenv = missing("getgenv", "function", getgenv, function() return shared end)
-local gethui = missing("gethui", "function", gethui or get_hidden_gui)
-local cloneref = missing("cloneref", "function", cloneref, function(...) return ... end)
-local queueonteleport =  missing("queueonteleport", "function", queue_on_teleport or (syn and syn.queue_on_teleport))
-local request =  missing("request", "function", request or http_request or (syn and syn.request) or (http and http.request))
-local setclipboard = missing("setclipboard", "function", setclipboard or toclipboard or set_clipboard)
-local hookfunction = missing("hookfunction", "function", hookfunction)
-local hookmetamethod = missing("hookmetamethod", "function", hookmetamethod)
-local getnamecallmethod = missing("getnamecallmethod", "function", getnamecallmethod or get_namecall_method)
-local checkcaller = missing("checkcaller", "function", checkcaller, function() return false end)
-local newcclosure = missing("newcclosure", "function", newcclosure, function(x) return x end)
-local firesignal = missing("firesignal", "function", firesignal)
-print(string.format("🛠️ Total working %d/%d", __TotalPassed, __TotalFunctions))
-
-local CoreGui: CoreGui = cloneref(game:GetService("CoreGui"))
-local Players: Players = cloneref(game:GetService("Players"))
-local RunService: RunService = cloneref(game:GetService("RunService"))
-local TeleportService: TeleportService = cloneref(game:GetService("TeleportService"))
-local UserInputService: UserInputService = cloneref(game:GetService("UserInputService"))
-local ReplicatedStorage: ReplicatedStorage = cloneref(game:GetService("ReplicatedStorage"))
-local PathfindingService: PathfindingService = cloneref(game:GetService("PathfindingService"))
-
-local LocalPlayer: Player = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local PlayerGui = LocalPlayer:FindFirstChildWhichIsA("PlayerGui")
 local HiddenGui = gethui and gethui() or CoreGui
-local Mouse: Mouse = cloneref(LocalPlayer:GetMouse())
 
 local _connections = {}
 
@@ -69,15 +23,12 @@ local RuntimeState = {
 	runStartedAt = 0
 }
 
-local userLicense = "Premium"
-local executor = identifyexecutor() or "Unknown"
-local executorSupport = __TotalPassed == __TotalFunctions and "Fully Supported" or __TotalPassed > __TotalFunctions/2 and "Partially Supported ⚠️" or (__TotalPassed > __TotalFunctions/4 and getgenv) and "Hopes and Prayers 🙏" or "Unsupported (Boiiii) ☠️"
+local executor = identifyexecutor and identifyexecutor() or "Unknown"
 
 local LogConsoleHistory = {}
 local RecordConsoleHistory = {}
 local RecordedMacro = {}
 local LogConsoleLabel, RecordConsoleLabel
-local IsRecording = false
 
 local Flags = {
     AutoStrat = false,
@@ -104,7 +55,27 @@ local function findPath(root: Instance?, parts: { string }): Instance?
     return current
 end
 
+local CustomUI = {}
 local CustomTextFunctions = {}
+
+CustomUI.PresetImages = {
+    Logo = "rbxassetid://1369675507942242",
+    Error = "rbxassetid://1369675507942242",
+    Success = "rbxassetid://1369675507942242",
+    Info = "rbxassetid://1369675507942242",
+}
+
+CustomUI.PresetColors = {
+    darkred = Color3.fromRGB(139, 0, 0),
+    red = Color3.fromRGB(255, 73, 73),
+    softred = Color3.fromRGB(255, 128, 128),
+    orange = Color3.fromRGB(255, 197, 73),
+    gold = Color3.fromRGB(238, 216, 146),
+    green = Color3.fromRGB(73, 230, 133),
+    blue = Color3.fromRGB(73, 184, 255),
+    purple = Color3.fromRGB(155, 73, 255),
+    pink = Color3.fromRGB(255, 105, 180),
+}
 
 CustomTextFunctions.lerpColor = function(c1: Color3, c2: Color3, t: number): Color3
     return Color3.new(
@@ -129,17 +100,15 @@ CustomTextFunctions.createRichTextGradient = function(text: string, colorList: {
     local result = ""
     local chars = {}
     
-    -- Correctly handle UTF-8 characters
     for first, last in utf8.graphemes(text) do
         table.insert(chars, string.sub(text, first, last))
     end
     
     local numChars = #chars
     for i, char in ipairs(chars) do
-        -- Space characters evenly along the gradient
         local alpha = (numChars > 1) and ((i - 1) / (numChars - 1)) or 0.5
         local color = CustomTextFunctions.getGradientColor(colorList, alpha)
-        local hex = color:ToHex() -- sUNC standard supports Color3:ToHex()
+        local hex = color:ToHex()
         
         result ..= string.format('<font color="#%s">%s</font>', hex, char)
     end
@@ -163,33 +132,21 @@ CustomTextFunctions.color3toRichtext = function(text: string, color: Color3, bol
     return string.format('<font color="rgb(%d, %d, %d)">%s%s%s</font>', r, g, b, boldTag, text, closeBoldTag)
 end
 
-local PresetUIColors = {
-    darkred = Color3.fromRGB(139, 0, 0),
-    red = Color3.fromRGB(255, 73, 73),
-    softred = Color3.fromRGB(255, 128, 128),
-    orange = Color3.fromRGB(255, 197, 73),
-    gold = Color3.fromRGB(238, 216, 146),
-    green = Color3.fromRGB(73, 230, 133),
-    blue = Color3.fromRGB(73, 184, 255),
-    purple = Color3.fromRGB(155, 73, 255),
-    pink = Color3.fromRGB(255, 105, 180),
-}
-
 local function printConsole(msg, console, status)
     local Timestamp = os.date("%X")
     local StatusTag = Timestamp or ""
     console = console or "log"
 
     if status == "success" then
-        StatusTag = CustomTextFunctions.color3toRichtext(Timestamp, PresetUIColors.green)
+        StatusTag = CustomTextFunctions.color3toRichtext(Timestamp, CustomUI.PresetColors.green)
     elseif status == "warning" then
-        StatusTag = CustomTextFunctions.color3toRichtext(Timestamp, PresetUIColors.orange)
+        StatusTag = CustomTextFunctions.color3toRichtext(Timestamp, CustomUI.PresetColors.orange)
     elseif status == "error" then
-        StatusTag = CustomTextFunctions.color3toRichtext(Timestamp, PresetUIColors.red)
+        StatusTag = CustomTextFunctions.color3toRichtext(Timestamp, CustomUI.PresetColors.red)
     elseif status == "critical" then
-        StatusTag = CustomTextFunctions.color3toRichtext(Timestamp, PresetUIColors.darkred, true)
+        StatusTag = CustomTextFunctions.color3toRichtext(Timestamp, CustomUI.PresetColors.darkred, true)
     elseif status == "info" then
-        StatusTag = CustomTextFunctions.color3toRichtext(Timestamp, PresetUIColors.blue)
+        StatusTag = CustomTextFunctions.color3toRichtext(Timestamp, CustomUI.PresetColors.blue)
     end
 
     local FinalMsg = "" .. StatusTag .. " -- " .. msg
@@ -208,21 +165,19 @@ local function printConsole(msg, console, status)
 end
 
 local repo = "https://raw.githubusercontent.com/deividcomsono/Obsidian/main/"
-local Library = loadstring(game:HttpGet(repo .. "Library.lua"))()
-local SaveManager = loadstring(game:HttpGet(repo .. "addons/SaveManager.lua"))()
-local ThemeManager = loadstring(game:HttpGet(repo .. "addons/ThemeManager.lua"))()
+local Library: Library = (loadstring(game:HttpGet(repo .. "Library.lua")) :: () -> Library)()
 
 local Options = Library.Options
 local Toggles = Library.Toggles
 
 Library.ShowToggleFrameInKeybinds = true
 
-local Game = "Tower Defense Simulator"
-local Version = "STAGING"
+local Game = "Universal"
+local Version = "1.6.7 | Baka Build"
 
 local Window = Library:CreateWindow({
     Title = "Soulfire",
-	Footer = "Game: " .. Game .. " | Build: " .. Version,
+	Footer = Game .. " | Version: " .. Version,
 	Icon = 95816097006870,
     EnableSidebarResize = true,
     EnableCompacting = true,
@@ -252,24 +207,31 @@ AccountGroupBox:AddImage("UserImage", {
 })
 
 AccountGroupBox:AddLabel("Good afternoon, <b>" .. LocalPlayer.DisplayName .. "</b>!\nWelcome back to Soulfire!", true)
-AccountGroupBox:AddLabel("Account Type: <b>" .. CustomTextFunctions.createRichTextGradient(userLicense, {PresetUIColors.gold, PresetUIColors.orange}) .. "</b>")
+AccountGroupBox:AddLabel("Account Type: <b>" .. CustomTextFunctions.createRichTextGradient("Premium", {CustomUI.PresetColors.gold, CustomUI.PresetColors.orange}) .. "</b>")
 AccountGroupBox:AddDivider("Environment")
 AccountGroupBox:AddLabel("Executor: <b>" .. executor .. "</b>")
-AccountGroupBox:AddLabel("Compatibility: <b>" .. executorSupport .. "</b>")
+AccountGroupBox:AddLabel("Compatibility: <b>" .. "Fully Supported" .. "</b>")
 
 local CreditsGroupBox = Tabs.Home:AddRightGroupbox('Developers', "circle-star")
-CreditsGroupBox:AddLabel('[' .. CustomTextFunctions.color3toRichtext(".lemonnn", PresetUIColors.green) .. '] Owner')
+CreditsGroupBox:AddLabel('[' .. CustomTextFunctions.color3toRichtext("BelowNatural", CustomUI.PresetColors.green) .. '] Owner', true)
+CreditsGroupBox:AddLabel('[' .. CustomTextFunctions.color3toRichtext("Upio", CustomUI.PresetColors.green) .. '] Interface Designer', true)
+CreditsGroupBox:AddLabel('[' .. CustomTextFunctions.color3toRichtext("Marlon", CustomUI.PresetColors.green) .. '] Aura Mogger', true)
+CreditsGroupBox:AddLabel('[' .. CustomTextFunctions.color3toRichtext("L3monnn", CustomUI.PresetColors.green) .. '] *Random Kid*', true)
 
 local InfoBox = Tabs.Home:AddRightGroupbox('Status', "info")
-InfoBox:AddLabel('🟢 Tower Defense Simulator')
-InfoBox:AddLabel('Soulfire is currenty in early beta, so features may not function properly. Join the discord for support, updates, and to share your strategies!', true)
+InfoBox:AddLabel('🤣 All systems offline')
+InfoBox:AddLabel('Soulfire is a discontinued prototype. Will update in ... never 🤣', true)
 
 InfoBox:AddButton('Join Discord', function()
-    setclipboard("67")
+    Library:Notify({
+        Title = "Important",
+        Description = "67 67 67 67 67 67 67 67 67 67 67 67 67 67 67 67 67",
+        Duration = 5,
+    })
 end)
 
 local UpdatesBox = Tabs.Home:AddRightGroupbox('Updates', 'megaphone')
-UpdatesBox:AddLabel('[' .. CustomTextFunctions.color3toRichtext("ALPHA 1.0.0", PresetUIColors.green) .. '] - Initial Release\n [+] Added Mason67\n [!] Fixed your aura🤣\n [-] Removed Herobrine', true)
+UpdatesBox:AddLabel('[' .. CustomTextFunctions.color3toRichtext("ALPHA 1.0.0", CustomUI.PresetColors.green) .. '] - Initial Release\n [+] Added Mason67\n [!] Fixed your aura🤣\n [-] Removed Herobrine', true)
 
 -- ==========================================
 -- AGENT TAB
@@ -277,27 +239,27 @@ UpdatesBox:AddLabel('[' .. CustomTextFunctions.color3toRichtext("ALPHA 1.0.0", P
 
 local function UpdateAgentStatus()
     local agentState = "Inactive"
-    local color = PresetUIColors.green
+    local color = CustomUI.PresetColors.green
 
     if RuntimeState.processorRunning and RuntimeState.payload then
         agentState = "Running"
-        color = PresetUIColors.green
+        color = CustomUI.PresetColors.green
     elseif RuntimeState.processorRunning then
         agentState = "Active"
-        color = PresetUIColors.green
+        color = CustomUI.PresetColors.green
     elseif RuntimeState.processorRunning and Toggles.PauseAgent.Value == true then
         agentState = "Paused"
-        color = PresetUIColors.orange
+        color = CustomUI.PresetColors.orange
     else
         agentState = "Inactive"
-        color = PresetUIColors.red
+        color = CustomUI.PresetColors.red
     end
     
     Library.Labels.AgentStatus:SetText('Status: <b>' .. CustomTextFunctions.color3toRichtext(agentState, color) .. '</b>')
 end
 
 local MasterBox = Tabs.Agent:AddLeftGroupbox('Master Controls', "crown")
-MasterBox:AddLabel('AgentStatus', { Text = 'Status: <b>' .. CustomTextFunctions.color3toRichtext("Inactive", PresetUIColors.red) .. '</b>' })
+MasterBox:AddLabel('AgentStatus', { Text = 'Status: <b>' .. CustomTextFunctions.color3toRichtext("Inactive", CustomUI.PresetColors.red) .. '</b>' })
 MasterBox:AddLabel('AgentPayload', { Text = 'Payload: <b>Empty</b>' })
 MasterBox:AddToggle('PauseAgent', { Text = 'Pause Agent'})
 MasterBox:AddButton({ Text = 'Terminate', DoubleClick = true, Func = function()
@@ -479,16 +441,13 @@ Options.CustomStratDropdown:OnChanged(function(state)
     local fileName = state
     local macro = readfile("Soulfire/TowerDefenseSimulator/" .. fileName .. ".lua")
 
-    -- Extract the data table
     local dataBlock = macro:match("data%s*=%s*(%b{})")
     if not dataBlock then
         error("No data table found in macro")
     end
 
-    -- Turn into a returnable chunk
     local chunk = "return " .. dataBlock
 
-    -- Load safely
     local fn = loadstring(chunk)
     setfenv(fn, {}) -- optional sandbox
     local ok, data = pcall(fn)
@@ -497,7 +456,6 @@ Options.CustomStratDropdown:OnChanged(function(state)
         error("Failed to parse data table: " .. tostring(data))
     end
 
-    -- Now you can inspect the macro metadata
     print("Author:", data.Author)
     print("Mode:", data.Mode)
     print("Map:", data.Map)
@@ -579,16 +537,19 @@ local function SetupDynamicSpoof()
         workspace
     }
 
-    local function applySpoof(obj)
+    local function update(obj)
+        local text = obj.Text
+        if text:find(RealName) or text:find(RealDisplay) then
+            task.wait()
+            obj.Text = text:gsub(RealName, CurrentSpoofedName):gsub(RealDisplay, CurrentSpoofedName)
+        end
+    end
+
+    local function applySpoof(obj: Instance)
         if obj:IsA("TextLabel") or obj:IsA("TextBox") or obj:IsA("TextButton") then
-            local function update()
-                local text = obj.Text
-                if text:find(RealName) or text:find(RealDisplay) then
-                    obj.Text = text:gsub(RealName, CurrentSpoofedName):gsub(RealDisplay, CurrentSpoofedName)
-                end
-            end
-            update()
-            local conn = obj:GetPropertyChangedSignal("Text"):Connect(update)
+            
+            update(obj)
+            local conn = obj:GetPropertyChangedSignal("Text"):Connect(function() update(obj) end)
             if not _connections["SpoofConns"] then _connections["SpoofConns"] = {} end
             table.insert(_connections["SpoofConns"], conn)
         end
@@ -611,7 +572,7 @@ end
 
 local function spoofAvatar(targetUsername)
     local char = LocalPlayer.Character
-    local humanoid = char and char:FindFirstChildOfClass("Humanoid")
+    local humanoid: Humanoid = char and char:FindFirstChildOfClass("Humanoid")
     if not humanoid then return warn("Character/Humanoid not found") end
 
     local successId, targetId = pcall(function() 
@@ -650,6 +611,8 @@ local function spoofAvatar(targetUsername)
             humanoid:ApplyDescriptionResetAsync(targetDesc)
         end
     end
+
+    return
 end
 
 local function SendWebhook(data: { Event: string?, Mode: string?, Map: string?, Time: string?, Rewards: { [string]: number }?, Stats: { [string]: number }?, IsTest: boolean?, ErrorMessage: string? })
@@ -662,7 +625,6 @@ local function SendWebhook(data: { Event: string?, Mode: string?, Map: string?, 
     if type(request) ~= "function" then return end
     if not Options.WebhookUrl.Value or not string.match(Options.WebhookUrl.Value, "https://") then return end
 
-    -- Color and Title Mappings
     local colormapping = { ["Win"] = 3066993, ["Loss"] = 15158332, ["Error"] = 15105570, ["Test"] = 3447003 }
     local titlemapping = { ["Win"] = "🏆 Victory!", ["Loss"] = "❌ Defeat!", ["Error"] = "⚠️ An Error Occurred" }
     local rewardmapping = { ["Coins"] = "🪙", ["Gems"] = "💎", ["Experience"] = "⭐", ["Bonus"] = "🎁" }
@@ -674,23 +636,20 @@ local function SendWebhook(data: { Event: string?, Mode: string?, Map: string?, 
         username = "Soulfire",
         avatar_url = "https://github.com/L3monnn/Soulfire/blob/main/Assets/Logo.png?raw=true",
         flags = 32768,
-        content = "", -- Mentions go here
+        content = "",
         components = {}
     }
 
-    -- 1. Handle Mentions/Pings
     if Options.PingSettings.Value and table.find(Options.PingSettings.Value, "Ping on " .. eventText) then
         payload.content = (Options.DiscordUserId.Value ~= "") and ("<@" .. Options.DiscordUserId.Value .. ">") or "@everyone"
     end
 
-    -- 2. Create the Main Container (Type 17)
     local mainContainer = {
         type = 17,
         accent_color = currentColor,
         components = {}
     }
 
-    -- Header Section (Type 13)
     table.insert(mainContainer.components, {
         type = 13,
         title = "Soulfire Logger",
@@ -698,7 +657,6 @@ local function SendWebhook(data: { Event: string?, Mode: string?, Map: string?, 
     })
 
     if data.IsTest then
-        -- Test Layout
         table.insert(mainContainer.components, {
             type = 10,
             content = "## 🛰️ Test Webhook\nYour webhook is configured correctly! ✅"
@@ -708,7 +666,6 @@ local function SendWebhook(data: { Event: string?, Mode: string?, Map: string?, 
             content = "> **Account:** `MasonBoi67`\n> **Executor:** `" .. (identifyexecutor() or "Unknown") .. "`"
         })
     elseif eventText == "Error" then
-        -- Error Layout
         table.insert(mainContainer.components, {
             type = 10,
             content = "### " .. titlemapping["Error"] .. "\nAn error occurred during your session."
@@ -718,7 +675,6 @@ local function SendWebhook(data: { Event: string?, Mode: string?, Map: string?, 
             content = "```\n" .. (data.ErrorMessage or "No details provided") .. "\n```"
         })
     else
-        -- Match Overview Layout (Win/Loss)
         table.insert(mainContainer.components, {
             type = 10,
             content = "### " .. (titlemapping[eventText] or "Match Result") .. "\n" ..
@@ -727,7 +683,6 @@ local function SendWebhook(data: { Event: string?, Mode: string?, Map: string?, 
                       "> **Time:** `" .. timeText .. "`"
         })
 
-        -- Build Rewards String
         local rewardsText = ""
         for reward, amount in pairs(data.Rewards or {}) do
             rewardsText = rewardsText .. (rewardmapping[reward] or "🔹") .. " " .. reward .. ": `" .. amount .. "`\n"
@@ -736,7 +691,6 @@ local function SendWebhook(data: { Event: string?, Mode: string?, Map: string?, 
             table.insert(mainContainer.components, { type = 10, content = "**✨ Rewards**\n" .. rewardsText })
         end
 
-        -- Build Stats String
         local statsText = ""
         for stat, value in pairs(data.Stats or {}) do
             statsText = statsText .. (statsmapping[stat] or "📊") .. " " .. stat .. ": `" .. value .. "`\n"
@@ -746,7 +700,6 @@ local function SendWebhook(data: { Event: string?, Mode: string?, Map: string?, 
         end
     end
 
-    -- Footer / Buttons
     table.insert(mainContainer.components, {
         type = 10,
         content = "-# Join our server for strategies and updates!"
@@ -760,14 +713,13 @@ local function SendWebhook(data: { Event: string?, Mode: string?, Map: string?, 
                 style = 5,
                 label = "Join Server",
                 emoji = { name = "🪐" },
-                url = "https://discord.gg/ddxY6P3Nmp"
+                url = "67"
             }
         }
     })
 
     table.insert(payload.components, mainContainer)
 
-    -- Send Request
     local success, response = pcall(function()
         return request({
             Url = Options.WebhookUrl.Value,
@@ -818,7 +770,6 @@ Toggles.Disable3DRendering:OnChanged(function(state)
     RunService:Set3dRenderingEnabled(state == false)
 end)
 
--- Webhook Configuration Section
 local WebHookBox = Tabs.Extra:AddRightGroupbox('Webhook', 'webhook')
 
 WebHookBox:AddInput("WebhookUrl", { 
@@ -867,7 +818,6 @@ RecorderBox:AddToggle('RecordToggle', {
 })
 
 Toggles.RecordToggle:OnChanged(function(state)
-    IsRecording = state
     if state then
         RecordedMacro = {}
         RecordConsoleHistory = {}
@@ -938,10 +888,12 @@ RecordConsoleLabel = RecordConsole:AddLabel('RecordConsoleLabel', {
 local MenuGroup = Tabs.Settings:AddLeftGroupbox("Menu", "wrench")
 
 MenuGroup:AddToggle("KeybindMenuOpen", {
-	Default = Library.KeybindFrame.Visible,
+	Default = Library.KeybindFrame and Library.KeybindFrame.Visible or false,
 	Text = "Open Keybind Menu",
 	Callback = function(value)
-		Library.KeybindFrame.Visible = value
+		if Library.KeybindFrame then
+			Library.KeybindFrame.Visible = value
+		end
 	end,
 })
 MenuGroup:AddToggle("ShowCustomCursor", {
@@ -1019,8 +971,8 @@ SaveManager:SetLibrary(Library)
 SaveManager:IgnoreThemeSettings()
 SaveManager:SetIgnoreIndexes({ "MenuKeybind" })
 
-ThemeManager:SetFolder("soulfire")
-SaveManager:SetFolder("soulfire/tower-defense-simulator")
+ThemeManager:SetFolder("Soulfire")
+SaveManager:SetFolder("Soulfire/Universal")
 
 SaveManager:BuildConfigSection(Tabs["Settings"])
 ThemeManager:ApplyToTab(Tabs["UI Settings"])
